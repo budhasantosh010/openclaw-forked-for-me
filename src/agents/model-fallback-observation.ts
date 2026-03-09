@@ -1,4 +1,5 @@
 import { createSubsystemLogger } from "../logging/subsystem.js";
+import { buildTextObservationFields } from "./pi-embedded-error-observation.js";
 import type { FailoverReason } from "./pi-embedded-helpers.js";
 
 const decisionLog = createSubsystemLogger("model-fallback").child("decision");
@@ -44,6 +45,7 @@ export function logModelFallbackDecision(params: {
     ? `${params.nextCandidate.provider}/${params.nextCandidate.model}`
     : "none";
   const reasonText = params.reason ?? "unknown";
+  const observedError = buildTextObservationFields(params.error);
   decisionLog.info("model fallback decision", {
     event: "model_fallback_decision",
     tags: ["error_handling", "model_fallback", params.decision],
@@ -57,7 +59,13 @@ export function logModelFallbackDecision(params: {
     reason: params.reason,
     status: params.status,
     code: params.code,
-    error: params.error,
+    errorPreview: observedError.textPreview,
+    errorHash: observedError.textHash,
+    errorFingerprint: observedError.textFingerprint,
+    httpCode: observedError.httpCode,
+    providerErrorType: observedError.providerErrorType,
+    providerErrorMessagePreview: observedError.providerErrorMessagePreview,
+    requestIdHash: observedError.requestIdHash,
     nextCandidateProvider: params.nextCandidate?.provider,
     nextCandidateModel: params.nextCandidate?.model,
     isPrimary: params.isPrimary,
@@ -71,7 +79,7 @@ export function logModelFallbackDecision(params: {
       reason: attempt.reason,
       status: attempt.status,
       code: attempt.code,
-      error: attempt.error,
+      ...buildTextObservationFields(attempt.error),
     })),
     consoleMessage:
       `model fallback decision: decision=${params.decision} requested=${params.requestedProvider}/${params.requestedModel} ` +

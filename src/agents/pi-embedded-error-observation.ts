@@ -23,6 +23,15 @@ function replaceRequestIdPreview(
   return text.split(requestId).join(redactIdentifier(requestId, { len: 12 }));
 }
 
+function redactObservationText(text: string | undefined): string | undefined {
+  if (!text) {
+    return text;
+  }
+  // Observation logs must stay redacted even when operators disable general-purpose
+  // log redaction, otherwise raw provider payloads leak back into always-on logs.
+  return redactSensitiveText(text, { mode: "tools" });
+}
+
 export function buildApiErrorObservationFields(rawError?: string): {
   rawErrorPreview?: string;
   rawErrorHash?: string;
@@ -43,11 +52,11 @@ export function buildApiErrorObservationFields(rawError?: string): {
     : undefined;
   const rawFingerprint = getApiErrorPayloadFingerprint(trimmed);
   const redactedRawPreview = replaceRequestIdPreview(
-    redactSensitiveText(trimmed),
+    redactObservationText(trimmed),
     parsed?.requestId,
   );
   const redactedProviderMessage = replaceRequestIdPreview(
-    parsed?.message ? redactSensitiveText(parsed.message) : undefined,
+    redactObservationText(parsed?.message),
     parsed?.requestId,
   );
 
@@ -62,5 +71,26 @@ export function buildApiErrorObservationFields(rawError?: string): {
       PROVIDER_ERROR_PREVIEW_MAX_CHARS,
     ),
     requestIdHash,
+  };
+}
+
+export function buildTextObservationFields(text?: string): {
+  textPreview?: string;
+  textHash?: string;
+  textFingerprint?: string;
+  httpCode?: string;
+  providerErrorType?: string;
+  providerErrorMessagePreview?: string;
+  requestIdHash?: string;
+} {
+  const observed = buildApiErrorObservationFields(text);
+  return {
+    textPreview: observed.rawErrorPreview,
+    textHash: observed.rawErrorHash,
+    textFingerprint: observed.rawErrorFingerprint,
+    httpCode: observed.httpCode,
+    providerErrorType: observed.providerErrorType,
+    providerErrorMessagePreview: observed.providerErrorMessagePreview,
+    requestIdHash: observed.requestIdHash,
   };
 }
